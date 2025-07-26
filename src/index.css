@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Cyberpunk Dark Theme */
+    --background: 220 27% 8%;
+    --foreground: 180 100% 85%;
+
+    --card: 220 39% 11%;
+    --card-foreground: 180 100% 85%;
+
+    --popover: 220 39% 11%;
+    --popover-foreground: 180 100% 85%;
+
+    --primary: 180 100% 50%;
+    --primary-foreground: 220 27% 8%;
+
+    --secondary: 220 39% 11%;
+    --secondary-foreground: 180 100% 85%;
+
+    --muted: 220 27% 15%;
+    --muted-foreground: 180 30% 65%;
+
+    --accent: 120 100% 50%;
+    --accent-foreground: 220 27% 8%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 220 27% 8%;
+
+    --border: 220 39% 18%;
+    --input: 220 39% 15%;
+    --ring: 180 100% 50%;
+
+    --radius: 0.75rem;
+
+    /* Cyber Glow Effects */
+    --cyber-glow: 180 100% 50%;
+    --cyber-glow-secondary: 120 100% 50%;
+    --cyber-warning: 45 100% 60%;
+    --cyber-danger: 0 84% 60%;
+    
+    /* Gradients */
+    --gradient-cyber: linear-gradient(135deg, hsl(var(--cyber-glow) / 0.3), hsl(var(--cyber-glow-secondary) / 0.2));
+    --gradient-dark: linear-gradient(180deg, hsl(var(--background)), hsl(220 27% 6%));
+    
+    /* Document Scanner Specific */
+    --scan-progress: 180 100% 45%;
+    --threat-critical: 0 84% 60%;
+    --threat-high: 15 100% 60%;
+    --threat-medium: 45 100% 60%;
+    --threat-low: 120 100% 50%;
+    
+    /* Shadows */
+    --shadow-cyber: 0 0 30px hsl(var(--cyber-glow) / 0.3);
+    --shadow-cyber-strong: 0 0 50px hsl(var(--cyber-glow) / 0.5);
+    
+    /* File status colors */
+    --status-queued: 199 89% 48%;
+    --status-analyzing: 39 84% 56%;
+    --status-analyzed: 142 71% 45%;
+    --status-error: 0 84% 60%;
+    --status-quarantined: 271 81% 56%;
+    --status-archived: 215 14% 34%;
+    
+    /* Animations */
+    --transition-cyber: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 220 39% 11%;
+    --sidebar-foreground: 180 100% 85%;
+    --sidebar-primary: 180 100% 50%;
+    --sidebar-primary-foreground: 220 27% 8%;
+    --sidebar-accent: 220 27% 15%;
+    --sidebar-accent-foreground: 180 100% 85%;
+    --sidebar-border: 220 39% 18%;
+    --sidebar-ring: 180 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Mapbox GL styles */
+.mapboxgl-popup {
+  max-width: 300px;
+}
+
+.mapboxgl-popup-content {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--cyber-glow) / 0.2);
+  border-radius: 8px;
+  color: hsl(var(--foreground));
+}
+
+.mapboxgl-ctrl-group {
+  background: hsl(var(--card) / 0.9);
+  border: 1px solid hsl(var(--cyber-glow) / 0.2);
+}
+
+.mapboxgl-ctrl button {
+  background: transparent;
+  color: hsl(var(--foreground));
+}
+
+.mapboxgl-ctrl button:hover {
+  background: hsl(var(--cyber-glow) / 0.1);
+}
+
+/* Cyber Animations */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 10px hsl(var(--cyber-glow) / 0.5));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 20px hsl(var(--cyber-glow) / 0.8));
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Shadow utilities */
+.shadow-cyber {
+  box-shadow: var(--shadow-cyber);
+}
+
+.shadow-cyber-strong {
+  box-shadow: var(--shadow-cyber-strong);
+}
