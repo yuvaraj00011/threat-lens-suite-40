@@ -1,201 +1,205 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Shield, AlertTriangle, Lock } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Eye, EyeOff, Shield, AlertTriangle, Lock, UserPlus, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import uciipLogo from '@/assets/uciip-professional-logo.png';
 
 interface LoginFormData {
-  emailOrUsername: string;
+  email: string;
   password: string;
   rememberMe: boolean;
 }
 
-interface TwoFactorData {
-  code: string;
-  useBackupCode: boolean;
+interface SignUpFormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  firstName: string;
+  lastName: string;
+  department: string;
+  badgeNumber: string;
+}
+
+interface ForgotPasswordData {
+  email: string;
 }
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { signIn, signUp, resetPassword, user, loading } = useAuth();
+  const { toast } = useToast();
+  
   const [showPassword, setShowPassword] = useState(false);
-  const [loginError, setLoginError] = useState('');
-  const [showTwoFactor, setShowTwoFactor] = useState(false);
-  const [loginAttempts, setLoginAttempts] = useState(0);
-  const [isLocked, setIsLocked] = useState(false);
-  const [sessionWarning, setSessionWarning] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState('login');
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user && !loading) {
+      const from = location.state?.from?.pathname || '/page';
+      navigate(from, { replace: true });
+    }
+  }, [user, loading, navigate, location]);
 
   const loginForm = useForm<LoginFormData>({
     defaultValues: {
-      emailOrUsername: '',
+      email: '',
       password: '',
       rememberMe: false
     }
   });
 
-  const twoFactorForm = useForm<TwoFactorData>({
+  const signUpForm = useForm<SignUpFormData>({
     defaultValues: {
-      code: '',
-      useBackupCode: false
+      email: '',
+      password: '',
+      confirmPassword: '',
+      firstName: '',
+      lastName: '',
+      department: '',
+      badgeNumber: ''
+    }
+  });
+
+  const forgotPasswordForm = useForm<ForgotPasswordData>({
+    defaultValues: {
+      email: ''
     }
   });
 
   const { watch: watchLogin } = loginForm;
-  const emailOrUsername = watchLogin('emailOrUsername');
+  const { watch: watchSignUp } = signUpForm;
+  const email = watchLogin('email');
   const password = watchLogin('password');
-  const isFormValid = emailOrUsername?.trim() && password?.trim();
+  const signUpPassword = watchSignUp('password');
+  const confirmPassword = watchSignUp('confirmPassword');
+  const isLoginFormValid = email?.trim() && password?.trim();
+  const isSignUpFormValid = signUpPassword?.trim() && confirmPassword?.trim() && signUpPassword === confirmPassword;
 
   const handleLogin = async (data: LoginFormData) => {
+    setIsSubmitting(true);
     try {
-      setLoginError('');
+      const { error } = await signIn(data.email, data.password);
       
-      // Simulate login API call
-      console.log('Login attempt:', data);
-      
-      // Check for valid credentials
-      if (data.emailOrUsername === 'yuva00raj@gmail.com' && data.password === '987654321') {
-        setShowTwoFactor(true);
+      if (error) {
+        toast({
+          title: "Login Failed",
+          description: error.message,
+          variant: "destructive",
+        });
       } else {
-        setLoginAttempts(prev => prev + 1);
-        setLoginError('Invalid credentials. Please verify your username/email and password.');
-        
-        if (loginAttempts >= 2) {
-          setIsLocked(true);
-          setLoginError('Account temporarily locked due to multiple failed attempts. Please try again later or contact your administrator.');
-        }
+        toast({
+          title: "Login Successful",
+          description: "Welcome back to UCIIP",
+        });
+        // Navigation handled by useEffect
       }
     } catch (error) {
-      setLoginError('Login failed. Please try again.');
+      toast({
+        title: "Login Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleTwoFactor = async (data: TwoFactorData) => {
+  const handleSignUp = async (data: SignUpFormData) => {
+    if (data.password !== data.confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "Passwords do not match. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      console.log('2FA verification:', data);
-      // Check for valid 2FA code
-      if (data.code === '917621') {
-        setSessionWarning('Login successful. Redirecting...');
-        setTimeout(() => {
-          navigate('/page');
-        }, 1500);
+      const { error } = await signUp(data.email, data.password, {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        display_name: `${data.firstName} ${data.lastName}`,
+        department: data.department,
+        badge_number: data.badgeNumber,
+      });
+      
+      if (error) {
+        toast({
+          title: "Registration Failed",
+          description: error.message,
+          variant: "destructive",
+        });
       } else {
-        setLoginError('Invalid verification code. Please try again.');
+        toast({
+          title: "Registration Successful",
+          description: "Please check your email to verify your account.",
+        });
+        setActiveTab('login');
       }
     } catch (error) {
-      setLoginError('Invalid verification code. Please try again.');
+      toast({
+        title: "Registration Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleForgotPassword = () => {
-    console.log('Forgot password clicked');
-    // This would trigger password reset for authorized accounts only
+  const handleForgotPassword = async (data: ForgotPasswordData) => {
+    setIsSubmitting(true);
+    try {
+      const { error } = await resetPassword(data.email);
+      
+      if (error) {
+        toast({
+          title: "Reset Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Reset Email Sent",
+          description: "Please check your email for reset instructions.",
+        });
+        setActiveTab('login');
+      }
+    } catch (error) {
+      toast({
+        title: "Reset Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  if (showTwoFactor) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-dark flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-8">
-          {/* UCIIP Branding */}
-          <div className="text-center space-y-4">
-            <img 
-              src={uciipLogo} 
-              alt="UCIIP Logo" 
-              className="mx-auto h-20 w-auto"
-            />
-            <div className="space-y-2">
-              <h1 className="text-2xl font-cyber font-bold text-cyber-glow">
-                UCIIP SECURE ACCESS
-              </h1>
-              <p className="text-cyber-glow font-mono text-sm animate-pulse-glow">
-                FOR OFFICIAL USE ONLY
-              </p>
-            </div>
-          </div>
-
-          {/* Two-Factor Authentication */}
-          <Card className="bg-card/50 border-cyber-glow/30 backdrop-blur-sm">
-            <CardHeader className="text-center space-y-2">
-              <Shield className="mx-auto h-12 w-12 text-cyber-glow" />
-              <h2 className="text-xl font-semibold text-foreground">Two-Factor Authentication</h2>
-              <p className="text-sm text-muted-foreground">
-                Enter the verification code from your authenticator app or SMS
-              </p>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={twoFactorForm.handleSubmit(handleTwoFactor)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="code" className="text-foreground">
-                    Verification Code
-                  </Label>
-                  <Input
-                    {...twoFactorForm.register('code')}
-                    id="code"
-                    type="text"
-                    placeholder="Enter 6-digit code"
-                    className="text-center text-lg tracking-widest font-mono"
-                    maxLength={6}
-                    autoComplete="one-time-code"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    {...twoFactorForm.register('useBackupCode')}
-                    id="backup-code"
-                  />
-                  <Label htmlFor="backup-code" className="text-sm text-muted-foreground">
-                    Use backup code instead
-                  </Label>
-                </div>
-
-                {loginError && (
-                  <Alert className="border-destructive/50 bg-destructive/10">
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
-                    <AlertDescription className="text-destructive">
-                      {loginError}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {sessionWarning && (
-                  <Alert className="border-cyber-glow/50 bg-cyber-glow/10">
-                    <Shield className="h-4 w-4 text-cyber-glow" />
-                    <AlertDescription className="text-cyber-glow">
-                      {sessionWarning}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                <Button
-                  type="submit"
-                  variant="cyber"
-                  className="w-full"
-                  disabled={!twoFactorForm.watch('code')}
-                >
-                  <Lock className="mr-2 h-4 w-4" />
-                  Verify & Login
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full text-muted-foreground"
-                  onClick={() => setShowTwoFactor(false)}
-                >
-                  Back to Login
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+      <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Shield className="h-12 w-12 animate-pulse text-cyber-glow mx-auto" />
+          <p className="text-cyber-glow font-mono">Initializing secure connection...</p>
         </div>
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-gradient-dark flex items-center justify-center p-4">
@@ -219,104 +223,278 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Login Form */}
+        {/* Authentication Tabs */}
         <Card className="bg-card/50 border-cyber-glow/30 backdrop-blur-sm">
-          <CardHeader className="text-center">
-            <h2 className="text-xl font-semibold text-foreground">Authorized Personnel Only</h2>
-            <p className="text-sm text-muted-foreground">
-              Please enter your credentials to access the system
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="emailOrUsername" className="text-foreground">
-                  Username or Email
-                </Label>
-                <Input
-                  {...loginForm.register('emailOrUsername')}
-                  id="emailOrUsername"
-                  type="text"
-                  placeholder="Enter your username or email"
-                  autoComplete="username"
-                  disabled={isLocked}
-                  aria-describedby="email-username-help"
-                />
-              </div>
+          <CardContent className="pt-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="signup">Register</TabsTrigger>
+                <TabsTrigger value="forgot">Reset Password</TabsTrigger>
+              </TabsList>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Input
-                    {...loginForm.register('password')}
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter your password"
-                    autoComplete="current-password"
-                    disabled={isLocked}
-                    className="pr-10"
-                  />
+              {/* Login Tab */}
+              <TabsContent value="login" className="space-y-4">
+                <div className="text-center space-y-2">
+                  <h2 className="text-xl font-semibold text-foreground">Authorized Personnel Only</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Please enter your credentials to access the system
+                  </p>
+                </div>
+                
+                <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-foreground">
+                      Email Address
+                    </Label>
+                    <Input
+                      {...loginForm.register('email')}
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email address"
+                      autoComplete="email"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-foreground">
+                      Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        {...loginForm.register('password')}
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Enter your password"
+                        autoComplete="current-password"
+                        disabled={isSubmitting}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                        disabled={isSubmitting}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      {...loginForm.register('rememberMe')}
+                      id="remember-me"
+                      disabled={isSubmitting}
+                    />
+                    <Label htmlFor="remember-me" className="text-sm text-muted-foreground">
+                      Remember me (policy permitting)
+                    </Label>
+                  </div>
+
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLocked}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    type="submit"
+                    variant={isLoginFormValid ? "cyberActive" : "cyber"}
+                    className="w-full"
+                    disabled={!isLoginFormValid || isSubmitting}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    <Lock className="mr-2 h-4 w-4" />
+                    {isSubmitting ? "Authenticating..." : "SECURE LOGIN"}
                   </Button>
+                </form>
+              </TabsContent>
+
+              {/* Sign Up Tab */}
+              <TabsContent value="signup" className="space-y-4">
+                <div className="text-center space-y-2">
+                  <h2 className="text-xl font-semibold text-foreground">Create Account</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Register for authorized system access
+                  </p>
                 </div>
-              </div>
+                
+                <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName" className="text-foreground">
+                        First Name
+                      </Label>
+                      <Input
+                        {...signUpForm.register('firstName')}
+                        id="firstName"
+                        placeholder="First name"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName" className="text-foreground">
+                        Last Name
+                      </Label>
+                      <Input
+                        {...signUpForm.register('lastName')}
+                        id="lastName"
+                        placeholder="Last name"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                  </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    {...loginForm.register('rememberMe')}
-                    id="remember-me"
-                    disabled={isLocked}
-                  />
-                  <Label htmlFor="remember-me" className="text-sm text-muted-foreground">
-                    Remember me (policy permitting)
-                  </Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="signupEmail" className="text-foreground">
+                      Email Address
+                    </Label>
+                    <Input
+                      {...signUpForm.register('email')}
+                      id="signupEmail"
+                      type="email"
+                      placeholder="Enter your email address"
+                      autoComplete="email"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="department" className="text-foreground">
+                        Department
+                      </Label>
+                      <Input
+                        {...signUpForm.register('department')}
+                        id="department"
+                        placeholder="Department"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="badgeNumber" className="text-foreground">
+                        Badge Number
+                      </Label>
+                      <Input
+                        {...signUpForm.register('badgeNumber')}
+                        id="badgeNumber"
+                        placeholder="Badge #"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signupPassword" className="text-foreground">
+                      Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        {...signUpForm.register('password')}
+                        id="signupPassword"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Create a strong password"
+                        autoComplete="new-password"
+                        disabled={isSubmitting}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                        disabled={isSubmitting}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword" className="text-foreground">
+                      Confirm Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        {...signUpForm.register('confirmPassword')}
+                        id="confirmPassword"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        placeholder="Confirm your password"
+                        autoComplete="new-password"
+                        disabled={isSubmitting}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        disabled={isSubmitting}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    variant={isSignUpFormValid ? "cyberActive" : "cyber"}
+                    className="w-full"
+                    disabled={!isSignUpFormValid || isSubmitting}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    {isSubmitting ? "Creating Account..." : "CREATE ACCOUNT"}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              {/* Forgot Password Tab */}
+              <TabsContent value="forgot" className="space-y-4">
+                <div className="text-center space-y-2">
+                  <h2 className="text-xl font-semibold text-foreground">Reset Password</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Enter your email to receive reset instructions
+                  </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="text-cyber-glow text-sm p-0 h-auto"
-                  onClick={handleForgotPassword}
-                  disabled={isLocked}
-                >
-                  Forgot Password?
-                </Button>
-              </div>
+                
+                <form onSubmit={forgotPasswordForm.handleSubmit(handleForgotPassword)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="resetEmail" className="text-foreground">
+                      Email Address
+                    </Label>
+                    <Input
+                      {...forgotPasswordForm.register('email')}
+                      id="resetEmail"
+                      type="email"
+                      placeholder="Enter your email address"
+                      autoComplete="email"
+                      disabled={isSubmitting}
+                    />
+                  </div>
 
-              {loginError && (
-                <Alert className="border-destructive/50 bg-destructive/10">
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
-                  <AlertDescription className="text-destructive">
-                    {loginError}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <Button
-                type="submit"
-                variant={isFormValid ? "cyberActive" : "cyber"}
-                className="w-full transition-all duration-300"
-                disabled={!isFormValid || isLocked}
-              >
-                <Lock className="mr-2 h-4 w-4" />
-                {isFormValid ? "SECURE LOGIN" : "SECURE LOGIN"}
-              </Button>
-            </form>
+                  <Button
+                    type="submit"
+                    variant="cyber"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    {isSubmitting ? "Sending..." : "SEND RESET EMAIL"}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 

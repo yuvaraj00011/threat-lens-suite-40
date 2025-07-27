@@ -1,14 +1,19 @@
 
 import { useState, useEffect } from "react"
-import { Menu } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Menu, LogOut, User } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/AppSidebar"
 import { FileUpload } from "@/components/FileUpload"
 import { NilaChat } from "@/components/NilaChat"
 import { ToolGrid } from "@/components/ToolGrid"
+import { useAuth } from "@/hooks/useAuth"
 import uciipLogo from "@/assets/uciip-professional-logo.png"
 
 const Index = () => {
+  const navigate = useNavigate()
+  const { user, signOut, profile, userRole } = useAuth()
   const [activatedTools, setActivatedTools] = useState<string[]>([])
   const [currentTime, setCurrentTime] = useState(new Date())
 
@@ -24,6 +29,18 @@ const Index = () => {
   const handleFileAnalyzed = (tools: string[]) => {
     setActivatedTools(tools)
   }
+
+  const handleLogout = async () => {
+    await signOut()
+    navigate('/login')
+  }
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!user) {
+      navigate('/login')
+    }
+  }, [user, navigate])
 
   return (
     <div className="min-h-screen bg-gradient-dark text-foreground font-mono">
@@ -57,12 +74,32 @@ const Index = () => {
                   </div>
                 </div>
 
-                {/* Right: Status indicators */}
+                {/* Right: User info and status */}
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-accent rounded-full animate-pulse-glow" />
                     <span className="text-sm text-accent font-mono">SECURE</span>
                   </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-sm text-cyber-glow font-mono">
+                        {profile?.display_name || user?.email}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono uppercase">
+                        {userRole}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleLogout}
+                      variant="ghost"
+                      size="sm"
+                      className="text-cyber-warning hover:text-cyber-warning/80 hover:bg-cyber-warning/10"
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
                   <div className="text-sm text-muted-foreground font-mono">
                     {currentTime.toLocaleTimeString()}
                   </div>

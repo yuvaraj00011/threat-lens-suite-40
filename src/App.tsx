@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthGuard } from "@/components/AuthGuard";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import RecentFiles from "./pages/RecentFiles";
@@ -27,20 +28,20 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/page" element={<Index />} />
-          <Route path="/recent-files" element={<RecentFiles />} />
-          <Route path="/case-history" element={<CaseHistory />} />
-          <Route path="/report-center" element={<ReportCenter />} />
-          <Route path="/starred-cases" element={<StarredCases />} />
-          <Route path="/app-settings" element={<AppSettings />} />
-          <Route path="/my-profile" element={<MyProfile />} />
-          <Route path="/u-view" element={<UView />} />
-          <Route path="/nila" element={<NilaAI />} />
-          <Route path="/osint-finder" element={<OsintFinder />} />
-          <Route path="/safe-documents" element={<SafeDocuments />} />
+          <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
+          <Route path="/page" element={<AuthGuard><Index /></AuthGuard>} />
+          <Route path="/recent-files" element={<AuthGuard><RecentFiles /></AuthGuard>} />
+          <Route path="/case-history" element={<AuthGuard><CaseHistory /></AuthGuard>} />
+          <Route path="/report-center" element={<AuthGuard requireRole="investigator"><ReportCenter /></AuthGuard>} />
+          <Route path="/starred-cases" element={<AuthGuard><StarredCases /></AuthGuard>} />
+          <Route path="/app-settings" element={<AuthGuard requireRole="admin"><AppSettings /></AuthGuard>} />
+          <Route path="/my-profile" element={<AuthGuard><MyProfile /></AuthGuard>} />
+          <Route path="/u-view" element={<AuthGuard><UView /></AuthGuard>} />
+          <Route path="/nila" element={<AuthGuard><NilaAI /></AuthGuard>} />
+          <Route path="/osint-finder" element={<AuthGuard><OsintFinder /></AuthGuard>} />
+          <Route path="/safe-documents" element={<AuthGuard><SafeDocuments /></AuthGuard>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
