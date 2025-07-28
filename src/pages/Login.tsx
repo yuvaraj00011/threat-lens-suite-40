@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Eye, EyeOff, Shield, AlertTriangle, Lock, UserPlus, Mail } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Shield, AlertTriangle, Lock, Mail } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import uciipLogo from '@/assets/uciip-professional-logo.png';
@@ -19,30 +17,19 @@ interface LoginFormData {
   rememberMe: boolean;
 }
 
-interface SignUpFormData {
-  email: string;
-  password: string;
-  confirmPassword: string;
-  firstName: string;
-  lastName: string;
-  department: string;
-  badgeNumber: string;
-}
-
-interface ForgotPasswordData {
-  email: string;
+interface OtpFormData {
+  otp: string;
 }
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signUp, resetPassword, user, loading } = useAuth();
+  const { user, loading } = useAuth();
   const { toast } = useToast();
   
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState('login');
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
 
   // Redirect if already logged in
   useEffect(() => {
@@ -60,37 +47,25 @@ const Login = () => {
     }
   });
 
-  const signUpForm = useForm<SignUpFormData>({
+  const otpForm = useForm<OtpFormData>({
     defaultValues: {
-      email: '',
-      password: '',
-      confirmPassword: '',
-      firstName: '',
-      lastName: '',
-      department: '',
-      badgeNumber: ''
-    }
-  });
-
-  const forgotPasswordForm = useForm<ForgotPasswordData>({
-    defaultValues: {
-      email: ''
+      otp: ''
     }
   });
 
   const { watch: watchLogin } = loginForm;
-  const { watch: watchSignUp } = signUpForm;
   const email = watchLogin('email');
-  const password = watchLogin('password');
-  const signUpPassword = watchSignUp('password');
-  const confirmPassword = watchSignUp('confirmPassword');
-  const isLoginFormValid = email?.trim() && password?.trim();
-  const isSignUpFormValid = signUpPassword?.trim() && confirmPassword?.trim() && signUpPassword === confirmPassword;
 
   const handleLogin = async (data: LoginFormData) => {
     setIsSubmitting(true);
     try {
-      const { error } = await signIn(data.email, data.password);
+      // Send OTP to the email
+      const { error } = await supabase.auth.signInWithOtp({
+        email: data.email,
+        options: {
+          shouldCreateUser: false // Only allow existing users
+        }
+      });
       
       if (error) {
         toast({
@@ -99,11 +74,12 @@ const Login = () => {
           variant: "destructive",
         });
       } else {
+        setPendingEmail(data.email);
+        setShowOtpInput(true);
         toast({
-          title: "Login Successful",
-          description: "Welcome back to UCIIP",
+          title: "OTP Sent",
+          description: "Please check your email for the verification code.",
         });
-        // Navigation handled by useEffect
       }
     } catch (error) {
       toast({
@@ -116,71 +92,31 @@ const Login = () => {
     }
   };
 
-  const handleSignUp = async (data: SignUpFormData) => {
-    if (data.password !== data.confirmPassword) {
-      toast({
-        title: "Password Mismatch",
-        description: "Passwords do not match. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleOtpVerification = async (data: OtpFormData) => {
     setIsSubmitting(true);
     try {
-      const { error } = await signUp(data.email, data.password, {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        display_name: `${data.firstName} ${data.lastName}`,
-        department: data.department,
-        badge_number: data.badgeNumber,
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingEmail,
+        token: data.otp,
+        type: 'email'
       });
       
       if (error) {
         toast({
-          title: "Registration Failed",
+          title: "Verification Failed",
           description: error.message,
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Registration Successful",
-          description: "Please check your email to verify your account.",
+          title: "Login Successful",
+          description: "Welcome back to UCIIP",
         });
-        setActiveTab('login');
+        // Navigation handled by useEffect
       }
     } catch (error) {
       toast({
-        title: "Registration Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleForgotPassword = async (data: ForgotPasswordData) => {
-    setIsSubmitting(true);
-    try {
-      const { error } = await resetPassword(data.email);
-      
-      if (error) {
-        toast({
-          title: "Reset Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Reset Email Sent",
-          description: "Please check your email for reset instructions.",
-        });
-        setActiveTab('login');
-      }
-    } catch (error) {
-      toast({
-        title: "Reset Error",
+        title: "Verification Error",
         description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
@@ -199,7 +135,6 @@ const Login = () => {
       </div>
     );
   }
-
 
   return (
     <div className="min-h-screen bg-gradient-dark flex items-center justify-center p-4">
@@ -223,22 +158,16 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Authentication Tabs */}
+        {/* Authentication Card */}
         <Card className="bg-card/50 border-cyber-glow/30 backdrop-blur-sm">
           <CardContent className="pt-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="signup">Register</TabsTrigger>
-                <TabsTrigger value="forgot">Reset Password</TabsTrigger>
-              </TabsList>
-
-              {/* Login Tab */}
-              <TabsContent value="login" className="space-y-4">
+            {!showOtpInput ? (
+              /* Login Form */
+              <div className="space-y-4">
                 <div className="text-center space-y-2">
                   <h2 className="text-xl font-semibold text-foreground">Authorized Personnel Only</h2>
                   <p className="text-sm text-muted-foreground">
-                    Please enter your credentials to access the system
+                    Please enter your email to receive a verification code
                   </p>
                 </div>
                 
@@ -251,233 +180,7 @@ const Login = () => {
                       {...loginForm.register('email')}
                       id="email"
                       type="email"
-                      placeholder="Enter your email address"
-                      autoComplete="email"
-                      disabled={isSubmitting}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-foreground">
-                      Password
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        {...loginForm.register('password')}
-                        id="password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Enter your password"
-                        autoComplete="current-password"
-                        disabled={isSubmitting}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                        disabled={isSubmitting}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      {...loginForm.register('rememberMe')}
-                      id="remember-me"
-                      disabled={isSubmitting}
-                    />
-                    <Label htmlFor="remember-me" className="text-sm text-muted-foreground">
-                      Remember me (policy permitting)
-                    </Label>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    variant={isLoginFormValid ? "cyberActive" : "cyber"}
-                    className="w-full"
-                    disabled={!isLoginFormValid || isSubmitting}
-                  >
-                    <Lock className="mr-2 h-4 w-4" />
-                    {isSubmitting ? "Authenticating..." : "SECURE LOGIN"}
-                  </Button>
-                </form>
-              </TabsContent>
-
-              {/* Sign Up Tab */}
-              <TabsContent value="signup" className="space-y-4">
-                <div className="text-center space-y-2">
-                  <h2 className="text-xl font-semibold text-foreground">Create Account</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Register for authorized system access
-                  </p>
-                </div>
-                
-                <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName" className="text-foreground">
-                        First Name
-                      </Label>
-                      <Input
-                        {...signUpForm.register('firstName')}
-                        id="firstName"
-                        placeholder="First name"
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName" className="text-foreground">
-                        Last Name
-                      </Label>
-                      <Input
-                        {...signUpForm.register('lastName')}
-                        id="lastName"
-                        placeholder="Last name"
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="signupEmail" className="text-foreground">
-                      Email Address
-                    </Label>
-                    <Input
-                      {...signUpForm.register('email')}
-                      id="signupEmail"
-                      type="email"
-                      placeholder="Enter your email address"
-                      autoComplete="email"
-                      disabled={isSubmitting}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="department" className="text-foreground">
-                        Department
-                      </Label>
-                      <Input
-                        {...signUpForm.register('department')}
-                        id="department"
-                        placeholder="Department"
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="badgeNumber" className="text-foreground">
-                        Badge Number
-                      </Label>
-                      <Input
-                        {...signUpForm.register('badgeNumber')}
-                        id="badgeNumber"
-                        placeholder="Badge #"
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="signupPassword" className="text-foreground">
-                      Password
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        {...signUpForm.register('password')}
-                        id="signupPassword"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Create a strong password"
-                        autoComplete="new-password"
-                        disabled={isSubmitting}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                        disabled={isSubmitting}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword" className="text-foreground">
-                      Confirm Password
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        {...signUpForm.register('confirmPassword')}
-                        id="confirmPassword"
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        placeholder="Confirm your password"
-                        autoComplete="new-password"
-                        disabled={isSubmitting}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        disabled={isSubmitting}
-                      >
-                        {showConfirmPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    variant={isSignUpFormValid ? "cyberActive" : "cyber"}
-                    className="w-full"
-                    disabled={!isSignUpFormValid || isSubmitting}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    {isSubmitting ? "Creating Account..." : "CREATE ACCOUNT"}
-                  </Button>
-                </form>
-              </TabsContent>
-
-              {/* Forgot Password Tab */}
-              <TabsContent value="forgot" className="space-y-4">
-                <div className="text-center space-y-2">
-                  <h2 className="text-xl font-semibold text-foreground">Reset Password</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Enter your email to receive reset instructions
-                  </p>
-                </div>
-                
-                <form onSubmit={forgotPasswordForm.handleSubmit(handleForgotPassword)} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="resetEmail" className="text-foreground">
-                      Email Address
-                    </Label>
-                    <Input
-                      {...forgotPasswordForm.register('email')}
-                      id="resetEmail"
-                      type="email"
-                      placeholder="Enter your email address"
+                      placeholder="Enter your authorized email address"
                       autoComplete="email"
                       disabled={isSubmitting}
                     />
@@ -485,16 +188,69 @@ const Login = () => {
 
                   <Button
                     type="submit"
-                    variant="cyber"
+                    variant={email?.trim() ? "cyberActive" : "cyber"}
                     className="w-full"
-                    disabled={isSubmitting}
+                    disabled={!email?.trim() || isSubmitting}
                   >
                     <Mail className="mr-2 h-4 w-4" />
-                    {isSubmitting ? "Sending..." : "SEND RESET EMAIL"}
+                    {isSubmitting ? "Sending OTP..." : "SEND VERIFICATION CODE"}
                   </Button>
                 </form>
-              </TabsContent>
-            </Tabs>
+              </div>
+            ) : (
+              /* OTP Verification Form */
+              <div className="space-y-4">
+                <div className="text-center space-y-2">
+                  <h2 className="text-xl font-semibold text-foreground">Enter Verification Code</h2>
+                  <p className="text-sm text-muted-foreground">
+                    We've sent a 6-digit code to {pendingEmail}
+                  </p>
+                </div>
+                
+                <form onSubmit={otpForm.handleSubmit(handleOtpVerification)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="otp" className="text-foreground">
+                      Verification Code
+                    </Label>
+                    <Input
+                      {...otpForm.register('otp')}
+                      id="otp"
+                      type="text"
+                      placeholder="Enter 6-digit code"
+                      maxLength={6}
+                      disabled={isSubmitting}
+                      className="text-center text-lg tracking-widest"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Button
+                      type="submit"
+                      variant="cyberActive"
+                      className="w-full"
+                      disabled={isSubmitting}
+                    >
+                      <Lock className="mr-2 h-4 w-4" />
+                      {isSubmitting ? "Verifying..." : "VERIFY & LOGIN"}
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => {
+                        setShowOtpInput(false);
+                        setPendingEmail('');
+                        otpForm.reset();
+                      }}
+                      disabled={isSubmitting}
+                    >
+                      Back to Email
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            )}
           </CardContent>
         </Card>
 
