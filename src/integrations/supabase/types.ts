@@ -55,6 +55,7 @@ export type Database = {
           avatar_url: string | null
           badge_number: string | null
           created_at: string
+          created_by_admin: boolean | null
           department: string | null
           display_name: string | null
           first_name: string | null
@@ -69,6 +70,7 @@ export type Database = {
           avatar_url?: string | null
           badge_number?: string | null
           created_at?: string
+          created_by_admin?: boolean | null
           department?: string | null
           display_name?: string | null
           first_name?: string | null
@@ -83,6 +85,7 @@ export type Database = {
           avatar_url?: string | null
           badge_number?: string | null
           created_at?: string
+          created_by_admin?: boolean | null
           department?: string | null
           display_name?: string | null
           first_name?: string | null

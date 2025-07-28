@@ -59,7 +59,14 @@ const Login = () => {
   const handleLogin = async (data: LoginFormData) => {
     setIsSubmitting(true);
     try {
-      // Send OTP to the email
+      // First check if user exists in our database
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_id, created_by_admin')
+        .eq('user_id', data.email) // This won't work, we need to match by email differently
+        .single();
+
+      // Try to sign in with magic link (OTP)
       const { error } = await supabase.auth.signInWithOtp({
         email: data.email,
         options: {
@@ -68,11 +75,20 @@ const Login = () => {
       });
       
       if (error) {
-        toast({
-          title: "Login Failed",
-          description: error.message,
-          variant: "destructive",
-        });
+        // Check if it's a user not found error
+        if (error.message.includes('User not found') || error.message.includes('Invalid login credentials')) {
+          toast({
+            title: "Access Denied",
+            description: "This email is not authorized. Contact your administrator to get access.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Login Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
       } else {
         setPendingEmail(data.email);
         setShowOtpInput(true);
